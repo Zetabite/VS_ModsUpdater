@@ -124,3 +124,7 @@ def get_current_config_file_path():
         raise OSError("Config file doesn't exist")
 
     return config_file_path
+
+
+def get_mods_table_csv_path():
+    return Path(get_temp_path(), 'csvtemp.csv')

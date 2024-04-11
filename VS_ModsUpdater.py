@@ -48,6 +48,8 @@ import vsmu.pathhandler as pathhandler
 # On récupère le system
 current_os = platform.system()
 
+vs_url = "https://mods.vintagestory.at"
+api_url = f"{vs_url}show/mod"
 
 # Creation of a logfile
 def write_log(info_crash):
@@ -142,11 +144,6 @@ class LanguageChoice:
 
 
 class MajScript:
-    def __init__(self):
-        # Version du script pour affichage titre.
-        super().__init__()
-        # system
-
     def check_update_script(self):
         # Scrap pour recuperer la derniere version en ligne du script
         if current_os == "Windows":
@@ -186,22 +183,21 @@ class MajScript:
 
 class VSUpdate:
     def __init__(self):
-        # ##### Version du script pour affichage titre.
-        super().__init__()
-        # #####
         # Définition des chemins
-        self.url_api = 'https://mods.vintagestory.at/api/mod/'
         self.crashlog_path = pathhandler.get_logs_path().joinpath('crash-log.txt')
         self.lang_name = ''
+
         # On crée le fichier config.ini si inexistant, puis (si lancement du script via l'executable et non en ligne de commande) on sort du programme si on veut ajouter des mods à exclure
         if not pathhandler.get_configfile_path().is_file():
             if args.nopause == 'false':
                 print(f'\n\t\t[bold cyan]{LanguageChoice().first_launch_title}[/bold cyan]\n')
                 i = 1
-                for lan_2L, item in LanguageChoice().dic_lang.items():
+
+                for _, item in LanguageChoice().dic_lang.items():
                     print(f'\t\t - {i}) {item[1]}, {item[0]}')
                     i += 1
                 lang_choice_result = Prompt.ask(f'\n\t\t[bold cyan]{LanguageChoice().first_launch_lang_choice}[/bold cyan]', choices=[str(i) for i in range(1, 9)], show_choices=False, default='2')
+                
                 for region, lang_ext in LanguageChoice().dic_lang.items():
                     if lang_choice_result == lang_ext[2]:
                         self.file_lang_path = Path(pathhandler.get_lang_path(), f'{lang_ext[0]}_{region}.json')
@@ -336,6 +332,7 @@ class VSUpdate:
         self.result_modid_json = re.search(self.regex_modid_json, txt_json, flags=re.IGNORECASE)
         self.regex_moddesc_json = r'"{0,1}description"{0,1} {0,}: {0,}"(.*)",{0,}'
         self.result_moddesc_json = re.search(self.regex_moddesc_json, txt_json, flags=re.IGNORECASE)
+
         if self.result_name_json:
             self.name_json = self.result_name_json.group(2)
         if self.result_version_json:
@@ -582,6 +579,7 @@ class VSUpdate:
     def update_mods(self):
         # Comparaison et maj des mods
         self.liste_mod_maj_filename.sort(key=lambda s: s.casefold())
+
         for mod_maj in self.liste_mod_maj_filename:
             modname_value = self.extract_modinfo(mod_maj)[0]
             self.version_locale = self.extract_modinfo(mod_maj)[2]
@@ -589,7 +587,7 @@ class VSUpdate:
             if modid_value == '':
                 modid_value = re.sub(r'\s', '', modname_value).lower()
             filename_value = self.extract_modinfo(mod_maj)[4]
-            mod_url_api = f'{self.url_api}{modid_value}'
+            mod_url_api = f'{api_url}/{modid_value}'
             # On teste la validité du lien url
             req = urllib.request.Request(str(mod_url_api))
             try:
@@ -708,12 +706,9 @@ class VSUpdate:
 class GetInfo:
     def __init__(self, mod_name, mod_id, mod_moddesc, mod_filepath):
         # path
-        self.csvfile = Path(pathhandler.get_temp_path(), 'csvtemp.csv')
         self.filepath = mod_filepath
         self.path_png = Path(pathhandler.get_temp_path(), 'png')
         self.path_modicon = None
-        self.path_url = 'https://mods.vintagestory.at/'
-        self.api_url = 'https://mods.vintagestory.at/api/mod/'
         # dico
         self.modsinfo_dic = {}
         # list
@@ -754,18 +749,21 @@ class GetInfo:
         return self.modsinfo_dic
 
     def get_url(self, modid):
-        url = os.path.join(self.api_url, modid)
+        url = os.path.join(api_url, modid)
         req = urllib.request.Request(url)
+
         try:
             urllib.request.urlopen(req)  # On teste l'existence du lien
             req_page = requests.get(url, timeout=2)
             resp_dict = req_page.json()
             mod_asset_id = str(resp_dict['mod']['assetid'])
             mod_urlalias = str(resp_dict['mod']['urlalias'])
+
             if mod_urlalias == 'None':
-                self.test_url_mod = f'https://mods.vintagestory.at/show/mod/{mod_asset_id}'
+                self.test_url_mod = f'{api_url}/{mod_asset_id}'
             else:
-                self.test_url_mod = f'https://mods.vintagestory.at/{mod_urlalias}'
+                self.test_url_mod = f'{vs_url}/{mod_urlalias}'
+
             return self.test_url_mod
         except requests.exceptions.ReadTimeout:
             write_log('ReadTimeout error: Server did not respond within the specified timeout.')
@@ -790,8 +788,6 @@ class MakePdf:
         self.year = self.current_dateTime.strftime("%Y")
         self.month = self.current_dateTime.strftime("%m")
         self.day = self.current_dateTime.strftime("%d")
-        # path
-        self.csvfile = Path(pathhandler.get_temp_path(), 'csvtemp.csv')
 
     def makepdf(self):
         try:
@@ -816,11 +812,13 @@ class MakePdf:
             monpdf.set_y(45)
             monpdf.cell(w=0, h=20, text=f'{self.langchoice.pdfTitle}', border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C", fill=False)
             table_data = []
+
             # On remplit la liste table_data
-            with open(self.csvfile, newline='') as csv_file:
+            with open(pathhandler.get_mods_table_csv_path(), newline='') as csv_file:
                 reader = csv.reader(csv_file, delimiter=',')
                 for ligne in reader:
                     table_data.append(ligne)
+
             with monpdf.table(first_row_as_headings=False,
                               line_height=5,
                               width=190,
@@ -897,11 +895,10 @@ if __name__ == "__main__":
     # Création du pdf (si argument nopause est false)
     if args.nopause == 'false' or args.makepdf == 'true':
         make_pdf = None
+
         if args.makepdf == 'false':
             while make_pdf not in {str(LanguageChoice().yes).lower(), str(LanguageChoice().yes[0]).lower(), str(LanguageChoice().no).lower(), str(LanguageChoice().no[0]).lower()}:
                 make_pdf = Prompt.ask(f'{LanguageChoice().makepdf}', choices=[LanguageChoice().list_yesno[0], LanguageChoice().list_yesno[1], LanguageChoice().list_yesno[2], LanguageChoice().list_yesno[3]])
-        else:
-            make_pdf = str(LanguageChoice().yes).lower()
 
         if make_pdf == str(LanguageChoice().yes).lower() or make_pdf == str(LanguageChoice().yes[0]).lower():
             # Construction du titre
