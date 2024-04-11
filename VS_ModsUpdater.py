@@ -11,9 +11,9 @@ Vintage Story mod management:
 - script execution by command line for servers.
 - Possibility of generating a pdf file of the mod list
 """
-__author__ = "Laerinok"
-__date__ = "2023-03-29"
-__version__ = "1.4.0"
+__author__ = ["Laerinok", "Zetabite"]
+__date__ = "2024-03-29"
+__version__ = "2.0.0"
 
 import argparse
 import configparser
@@ -22,7 +22,6 @@ import datetime as dt
 import glob
 import json
 import os
-import pathlib
 import platform
 import re
 import shutil
@@ -43,85 +42,17 @@ from fpdf import FPDF, YPos, XPos
 from rich import print
 from rich.prompt import Prompt
 
+import vsmu.pathhandler as pathhandler
+
 
 # On récupère le system
 current_os = platform.system()
-
-mods_path = None
-config_file_path = None
-
-
-# Mods path that is the default for system
-def get_default_mods_path():
-    # On vérifie si le chemin contient des variables d'environnement
-    # On vérifie si la variable %appdata% (ou HOME) est dans le chemin et on la remplace par la variable systeme.
-    if current_os == 'Windows':
-        # On cherche les versions installées de Vintage Story
-        return Path(os.getenv('appdata'), 'VintagestoryData', 'Mods')
-    elif current_os == 'Linux':
-        return Path(Path.home(), '.config', 'VintagestoryData', 'Mods')
-    return None
-
-
-# On récupère l'argument modspath
-def get_mods_path():
-    global mods_path
-
-    system_mods_path = get_default_mods_path()
-
-    if mods_path is not None and Path(mods_path).is_dir():
-        return Path(mods_path)
-    elif system_mods_path is not None and system_mods_path.is_dir():
-        return system_mods_path
-    return None
-
-
-def get_config_path():
-    # On cherche les versions installées de Vintage Story
-    if current_os == 'Windows':
-        config_path = Path(os.getenv('appdata'), 'VS_ModsUpdater')
-    elif current_os == 'Linux':
-        config_path = Path(Path.home(), '.config', 'VS_ModsUpdater')
-    else:
-        config_path = None
-
-    if config_path is None:
-        raise Exception('OS not supported')
-    if not config_path.is_dir():
-        os.mkdir(config_path)
-    return config_path
-
-
-def get_configfile_path():
-    global config_file_path
-
-    if config_file_path.is_file() and os.stat(config_file_path).st_size == 0:
-        os.remove(config_file_path)
-    return config_file_path
-
-
-def get_logs_path():
-    log_path = Path(get_config_path(), 'logs')
-    if not log_path.is_dir():
-        os.mkdir(log_path)
-    return Path(log_path)
-
-
-def get_temp_path():
-    temp_path = Path(get_config_path(), 'temp')
-    if not temp_path.is_dir():
-        os.mkdir(temp_path)
-    return Path(temp_path)
-
-
-def get_lang_path():
-    return Path(Path.cwd(), 'lang')
 
 
 # Creation of a logfile
 def write_log(info_crash):
     print('An error occured. Please see the debug-log file in logs folder for more information.')
-    log_path = get_logs_path().joinpath(f'debug-log-{dt.datetime.today().strftime("%Y%m%d%H%M%S")}.txt')
+    log_path = pathhandler.get_logs_path().joinpath(f'debug-log-{dt.datetime.today().strftime("%Y%m%d%H%M%S")}.txt')
     with open(log_path, 'a', encoding='UTF-8') as crashlog_file:
         crashlog_file.write(f'{dt.datetime.today().strftime("%Y-%m-%d %H:%M:%S")} : {info_crash}\n')
 
@@ -131,7 +62,7 @@ class LanguageChoice:
         self.url_mods = 'https://mods.vintagestory.at/'
         # Si on définit manuellement la langue via le fichier config
         self.config_read = configparser.ConfigParser(allow_no_value=True, interpolation=None)
-        self.config_read.read(get_configfile_path(), encoding='utf-8-sig')
+        self.config_read.read(pathhandler.get_configfile_path(), encoding='utf-8-sig')
         # On vérifie si args.language existe
         if args.language:
             self.lang = f'{args.language}.json'
@@ -143,10 +74,10 @@ class LanguageChoice:
             # On charge le fichier en_US.json
             except (configparser.NoOptionError, configparser.NoSectionError):
                 self.lang = 'en_US.json'
-        self.file_lang_path = Path(get_lang_path(), self.lang)
+        self.file_lang_path = Path(pathhandler.get_lang_path(), self.lang)
 
         if not self.file_lang_path.is_file():
-            self.file_lang_path = Path(get_lang_path(), 'en_US.json')  # on charge en.json si aucun fichier de langue n'est présent
+            self.file_lang_path = Path(pathhandler.get_lang_path(), 'en_US.json')  # on charge en.json si aucun fichier de langue n'est présent
         # On charge le fichier de langue
         with open(self.file_lang_path, "r", encoding='utf-8-sig') as lang_json:
             desc = json.load(lang_json)
@@ -260,10 +191,10 @@ class VSUpdate:
         # #####
         # Définition des chemins
         self.url_api = 'https://mods.vintagestory.at/api/mod/'
-        self.crashlog_path = get_logs_path().joinpath('crash-log.txt')
+        self.crashlog_path = pathhandler.get_logs_path().joinpath('crash-log.txt')
         self.lang_name = ''
         # On crée le fichier config.ini si inexistant, puis (si lancement du script via l'executable et non en ligne de commande) on sort du programme si on veut ajouter des mods à exclure
-        if not get_configfile_path().is_file():
+        if not pathhandler.get_configfile_path().is_file():
             if args.nopause == 'false':
                 print(f'\n\t\t[bold cyan]{LanguageChoice().first_launch_title}[/bold cyan]\n')
                 i = 1
@@ -273,28 +204,28 @@ class VSUpdate:
                 lang_choice_result = Prompt.ask(f'\n\t\t[bold cyan]{LanguageChoice().first_launch_lang_choice}[/bold cyan]', choices=[str(i) for i in range(1, 9)], show_choices=False, default='2')
                 for region, lang_ext in LanguageChoice().dic_lang.items():
                     if lang_choice_result == lang_ext[2]:
-                        self.file_lang_path = Path(get_lang_path(), f'{lang_ext[0]}_{region}.json')
+                        self.file_lang_path = Path(pathhandler.get_lang_path(), f'{lang_ext[0]}_{region}.json')
                         self.lang_name = lang_ext[1]
             elif args.language:
-                self.file_lang_path = Path(get_lang_path(), f'{args.language}.json')
+                self.file_lang_path = Path(pathhandler.get_lang_path(), f'{args.language}.json')
                 for region, lang_ext in LanguageChoice().dic_lang.items():
                     # On récupere le nom de la langue
                     if region == args.language.split('_')[1]:
                         self.lang_name = lang_ext[1]
             else:
-                self.file_lang_path = Path(get_lang_path(), 'en_US.json')
+                self.file_lang_path = Path(pathhandler.get_lang_path(), 'en_US.json')
                 self.lang_name = 'English'
 
             # On crée le fichier config.ini
             self.set_config_ini()
             # On récupère les valeurs de config.ini
             self.config_read = configparser.ConfigParser(allow_no_value=True, interpolation=None)
-            self.config_read.read(get_configfile_path(), encoding='utf-8-sig')
+            self.config_read.read(pathhandler.get_configfile_path(), encoding='utf-8-sig')
             self.force_update = self.config_read.get('ModsUpdater', 'force_update')  # On récupère la valeur de force_update
             self.disable_mod_dev = self.config_read.get('ModsUpdater', 'disable_mod_dev')  # On récupère l'option pour la maj ou non des version dev des mod.
             print(f'\n\t[bold cyan]{LanguageChoice().first_launch_config_done}[/bold cyan] :')
             print(f'\t\t- [bold cyan]{LanguageChoice().first_launch_lang_txt}[/bold cyan] : {self.lang_name}')
-            print(f'\t\t- [bold cyan]{LanguageChoice().first_launch_pathmods} : {get_mods_path()}[/bold cyan]')
+            print(f'\t\t- [bold cyan]{LanguageChoice().first_launch_pathmods} : {pathhandler.get_mods_path()}[/bold cyan]')
             print(f'\t\t- [bold cyan]{LanguageChoice().first_launch_game_ver_max}[/bold cyan]')
             print(f'\t\t- [bold cyan]force_Update : {self.force_update}[/bold cyan]')
             print(f'\t\t- [bold cyan]disable_mod_dev : {self.disable_mod_dev}[/bold cyan]')
@@ -304,14 +235,14 @@ class VSUpdate:
                 maj_ok = Prompt.ask(f'\n\t{LanguageChoice().first_launch3}', choices=[LanguageChoice().list_yesno[0], LanguageChoice().list_yesno[1], LanguageChoice().list_yesno[2], LanguageChoice().list_yesno[3]])
                 if maj_ok == LanguageChoice().list_yesno[1] or maj_ok == LanguageChoice().list_yesno[3]:
                     print(f'{lang.end_of_prg} ')
-                    if get_temp_path().is_dir():
-                        shutil.rmtree(get_temp_path())
+                    if pathhandler.get_temp_path().is_dir():
+                        shutil.rmtree(pathhandler.get_temp_path())
                     time.sleep(2)
                     sys.exit()
 
         # On charge le fichier config.ini
         self.config_read = configparser.ConfigParser(allow_no_value=True, interpolation=None)
-        self.config_read.read(get_configfile_path(), encoding='utf-8-sig')
+        self.config_read.read(pathhandler.get_configfile_path(), encoding='utf-8-sig')
         # Définition des listes
         self.mod_filename = []
         self.mod_name_list = []
@@ -372,7 +303,7 @@ class VSUpdate:
         config.set('ModsUpdater', '# Allow to disable or enable update of mod in dev or prerelease (true/false default=false).')
         config.set('ModsUpdater', 'disable_mod_dev', 'false')
         config.add_section('ModPath')
-        config.set('ModPath', 'path', str(get_mods_path()))
+        config.set('ModPath', 'path', str(pathhandler.get_mods_path()))
         config.add_section('Language')
         config.set('Language', str(LanguageChoice().language_comment))
         #  Si l'argument lang a été transmis
@@ -393,7 +324,7 @@ class VSUpdate:
         else:
             for i in range(1, 11):
                 config.set('Mod_Exclusion', 'mod' + str(i), '')
-        with open(get_configfile_path(), 'w', encoding="utf-8") as cfgfile:
+        with open(pathhandler.get_configfile_path(), 'w', encoding="utf-8") as cfgfile:
             config.write(cfgfile)
 
     def json_correction(self, txt_json):
@@ -421,7 +352,7 @@ class VSUpdate:
         type_file = Path(file).suffix
         if type_file == '.zip':
             # On lit le fichier modinfo.json de l'archive et on recupere le modid, name et version
-            self.filepath = Path(get_mods_path(), file)
+            self.filepath = Path(pathhandler.get_mods_path(), file)
             if zipfile.is_zipfile(self.filepath):  # Vérifie si fichier est un Zip valide
                 with zipfile.ZipFile(self.filepath) as fichier_zip:
                     with fichier_zip.open('modinfo.json') as modinfo_json:
@@ -463,7 +394,7 @@ class VSUpdate:
                 msg_error = f'{file} :\n\n\t {traceback.format_exc()}'
                 write_log(msg_error)
         elif type_file == '.cs':
-            self.filepath = Path(get_mods_path(), file)
+            self.filepath = Path(pathhandler.get_mods_path(), file)
             with open(self.filepath, "r", encoding='utf-8-sig') as fichier_cs:
                 cs_file = fichier_cs.read()
                 regexp_name = '(namespace )(\\w*)'
@@ -480,7 +411,7 @@ class VSUpdate:
 
     def liste_complete_mods(self):
         # On crée la liste contenant les noms des fichiers zip des mods
-        for elem in get_mods_path().glob('*.zip'):
+        for elem in pathhandler.get_mods_path().glob('*.zip'):
             mod_zipfile = zipfile.ZipFile(elem, 'r')
             with mod_zipfile:
                 try:  # On ajoute uniquement les fichiers zip qui sont des mods
@@ -489,7 +420,7 @@ class VSUpdate:
                 except KeyError:
                     pass
         # On ajoute les fichiers .cs
-        for elem_cs in get_mods_path().glob('*.cs'):
+        for elem_cs in pathhandler.get_mods_path().glob('*.cs'):
             self.mod_filename.append(elem_cs.name)
         if len(self.mod_filename) == 0:
             print(f"{LanguageChoice().err_list}")
@@ -695,7 +626,7 @@ class VSUpdate:
                                 msg_error = f'{filename_value} :\n\n\t {traceback.format_exc()}'
                                 write_log(msg_error)
                                 sys.exit()
-                            wget.download(dl_link, str(get_mods_path()))  # debug
+                            wget.download(dl_link, str(pathhandler.get_mods_path()))  # debug
                             self.changelog_path = f'https://mods.vintagestory.at/show/mod/{mod_asset_id}#tab-files'
                             log_txt = self.get_changelog(self.changelog_path)  # On récupère le changelog
                             content_lst_mods_updated = [
@@ -723,9 +654,7 @@ class VSUpdate:
             print(f'  [yellow]{LanguageChoice().summary1}[/yellow] \n')
             print(f'{LanguageChoice().summary2} :')
             log_filename = f'updates_{dt.datetime.today().strftime("%Y%m%d_%H%M%S")}.txt'
-            if not get_logs_path().is_dir():
-                os.mkdir('logs')
-            log_path = Path(get_logs_path(), log_filename)
+            log_path = Path(pathhandler.get_logs_path(), log_filename)
             with open(log_path, 'w', encoding='utf-8-sig') as logfile:
                 logfile.write(f'\n\t\t\tMods Vintage Story - {LanguageChoice().last_update} : {dt.datetime.today().strftime("%Y-%m-%d %H:%M:%S")}\n\n')
                 for modname, value in self.mods_updated.items():
@@ -745,9 +674,7 @@ class VSUpdate:
             print(f'  [yellow]{LanguageChoice().summary3}[/yellow] \n')
             print(f'{LanguageChoice().summary4} :')
             log_filename = f'updates_{dt.datetime.today().strftime("%Y%m%d_%H%M%S")}.txt'
-            if not get_logs_path().is_dir():
-                os.mkdir(get_logs_path())
-            log_path = Path(get_logs_path(), log_filename)
+            log_path = Path(pathhandler.get_logs_path(), log_filename)
             with open(log_path, 'w', encoding='utf-8-sig') as logfile:
                 logfile.write(
                     f'\n\t\t\tMods Vintage Story - {LanguageChoice().last_update} : {dt.datetime.today().strftime("%Y-%m-%d %H:%M:%S")}\n\n')
@@ -781,9 +708,9 @@ class VSUpdate:
 class GetInfo:
     def __init__(self, mod_name, mod_id, mod_moddesc, mod_filepath):
         # path
-        self.csvfile = Path(get_temp_path(), 'csvtemp.csv')
+        self.csvfile = Path(pathhandler.get_temp_path(), 'csvtemp.csv')
         self.filepath = mod_filepath
-        self.path_png = Path(get_temp_path(), 'png')
+        self.path_png = Path(pathhandler.get_temp_path(), 'png')
         self.path_modicon = None
         self.path_url = 'https://mods.vintagestory.at/'
         self.api_url = 'https://mods.vintagestory.at/api/mod/'
@@ -864,7 +791,7 @@ class MakePdf:
         self.month = self.current_dateTime.strftime("%m")
         self.day = self.current_dateTime.strftime("%d")
         # path
-        self.csvfile = Path(get_temp_path(), 'csvtemp.csv')
+        self.csvfile = Path(pathhandler.get_temp_path(), 'csvtemp.csv')
 
     def makepdf(self):
         try:
@@ -877,7 +804,7 @@ class MakePdf:
             monpdf.set_auto_page_break(True, margin=10)
             monpdf.set_page_background((200, 215, 150))
             monpdf.add_page(same=True)
-            nom_fichier_pdf = Path(get_config_path(), f'VS_Mods_{self.year}_{self.month}_{self.day}.pdf')
+            nom_fichier_pdf = Path(pathhandler.get_config_path(), f'VS_Mods_{self.year}_{self.month}_{self.day}.pdf')
             monpdf.oversized_images = "DOWNSCALE"
             monpdf.oversized_images_ratio = 5
             width_img = 180
@@ -922,13 +849,10 @@ class MakePdf:
 
 
 if __name__ == "__main__":
-    mods_path = get_default_mods_path()
-    config_file_path = Path(get_config_path(), 'config.ini')
-
     # Définitions des arguments
     argParser = argparse.ArgumentParser()
-    argParser.add_argument("--modspath", help='Path to the mods folder', required=False, type=pathlib.Path)
-    argParser.add_argument("--configfile", help='Path to the config.ini', required=False, type=pathlib.Path, default=get_configfile_path())
+    argParser.add_argument("--modspath", help='Path to the mods folder', required=False, type=Path)
+    argParser.add_argument("--configfile", help='Path to the config.ini', required=False, type=Path, default=Path(pathhandler.get_config_path(), 'config.ini'))
     argParser.add_argument("--language", help='Set the language file (Default=en_US - see the lang directory).', required=False, default='en_US')
     argParser.add_argument("--nopause", help="Disable the pause at the end of the script (default=false).", choices=['false', 'true'], type=str.lower, required=False, default='false')
     argParser.add_argument("--exclusion", help="Write filenames of mods with extension (in quotes) you want to exclude (each mod separated by space).", nargs="+")
@@ -938,13 +862,11 @@ if __name__ == "__main__":
     args = argParser.parse_args()
     # Fin des arguments
 
-    if get_config_path() is None:
+    if pathhandler.get_config_path() is None:
         raise Exception('OS not supported')
-    elif not get_config_path().is_dir():
-        os.mkdir(get_config_path())
 
     if args.configfile:
-        config_file_path = Path(args.configfile)
+        pathhandler.set_current_config_file_path(Path(args.configfile))
 
     # Test si il existe un fichier langue. (english par defaut)
     try:
@@ -955,25 +877,17 @@ if __name__ == "__main__":
         sys.exit()
 
     if args.modspath and Path(args.modspath).is_dir():
-        mods_path = Path(args.modspath)
+        pathhandler.set_current_mods_path(Path(args.modspath))
 
-    if not (args.modspath and Path(args.modspath).is_dir()) and get_configfile_path().is_file():
+    if not (args.modspath and Path(args.modspath).is_dir()) and pathhandler.get_current_config_file_path().is_file():
         # On charge le fichier config.ini si --modspath non donné
         config_read = configparser.ConfigParser(allow_no_value=True, interpolation=None)
         config_read.read('config.ini', encoding='utf-8-sig')
-        mods_path = config_read.get('ModPath', 'path')
+        pathhandler.set_current_mods_path(config_read.get('ModPath', 'path'))
 
         # On récupère le dossier des mods par argument, sinon on definit par defaut
 
     inst = VSUpdate()
-
-    if not Path(get_configfile_path()).is_file():
-        print(get_configfile_path())
-        raise OSError("Config file doesn't exist")
-
-    if mods_path is None:
-        raise Exception('No mods path defined')
-
     inst.accueil()
     inst.mods_exclusion()
     inst.mods_list()
@@ -1002,7 +916,7 @@ if __name__ == "__main__":
             nb_mods = 0
             nb_mods_ok = 0
             print('\n')
-            mod_files_path = Path(mods_path, '*.*')
+            mod_files_path = Path(pathhandler.get_current_mods_path(), '*.*')
             for mod in glob.glob(str(mod_files_path)):
                 if os.path.splitext(mod)[1] == '.zip' or os.path.splitext(mod)[1] == '.cs':
                     nb_mods += 1
@@ -1022,6 +936,3 @@ if __name__ == "__main__":
             print(f'{LanguageChoice().end_of_prg} ')
             time.sleep(2)
 
-    # On efface le dossier temp
-    if get_temp_path().is_dir():
-        shutil.rmtree(get_temp_path())
