@@ -29,7 +29,7 @@
 	"summary7" : "The following mods are excluded from the update",	
 	"error_modid" : "modid not present in the modinfo.json file. Unable to get the update.",
 	"error" : "ERROR",
-	"last_update" : "Last Update",
+	"last_update" : "Latest Update",
 	"yes" : "Yes",
 	"no" : "No",
 	"existing_update" : "New version of ModsUpdater available !! ",
@@ -42,5 +42,5 @@
 	"pdfTitle" : "Installed mods",
 	"ErrorCreationPDF" : "Unable to create file. Check that it is not already open.",
 	"end_of_prg" : "ModsUpdater will now shut down.",
-	"error_msg" : "An error has occurred. Please consult the debug file."
+	"error_msg" : "An error has occurred. Please consult the debug log."
 }
