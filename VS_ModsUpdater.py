@@ -20,7 +20,6 @@ import configparser
 import csv
 import datetime as dt
 import glob
-import json
 import os
 import platform
 import re
@@ -42,14 +41,17 @@ from fpdf import FPDF, YPos, XPos
 from rich import print
 from rich.prompt import Prompt
 
-import vsmu.pathhandler as pathhandler
+import vsmu.path_handler as pathhandler
+import vsmu.language_handler as languagehandler
 
 
 # On récupère le system
 current_os = platform.system()
 
-vs_url = "https://mods.vintagestory.at"
-api_url = f"{vs_url}show/mod"
+mods_url = "https://mods.vintagestory.at"
+api_url = f"{mods_url}show/mod"
+
+lang_handler = None
 
 # Creation of a logfile
 def write_log(info_crash):
@@ -57,90 +59,6 @@ def write_log(info_crash):
     log_path = pathhandler.get_logs_path().joinpath(f'debug-log-{dt.datetime.today().strftime("%Y%m%d%H%M%S")}.txt')
     with open(log_path, 'a', encoding='UTF-8') as crashlog_file:
         crashlog_file.write(f'{dt.datetime.today().strftime("%Y-%m-%d %H:%M:%S")} : {info_crash}\n')
-
-
-class LanguageChoice:
-    def __init__(self):
-        self.url_mods = 'https://mods.vintagestory.at/'
-        # Si on définit manuellement la langue via le fichier config
-        self.config_read = configparser.ConfigParser(allow_no_value=True, interpolation=None)
-        self.config_read.read(pathhandler.get_configfile_path(), encoding='utf-8-sig')
-        # On vérifie si args.language existe
-        if args.language:
-            self.lang = f'{args.language}.json'
-        # Sinon on récupère la langue via config.ini
-        else:
-            try:
-                self.config_lang = self.config_read.get('Language', 'language')
-                self.lang = f'{self.config_lang}.json'
-            # On charge le fichier en_US.json
-            except (configparser.NoOptionError, configparser.NoSectionError):
-                self.lang = 'en_US.json'
-        self.file_lang_path = Path(pathhandler.get_lang_path(), self.lang)
-
-        if not self.file_lang_path.is_file():
-            self.file_lang_path = Path(pathhandler.get_lang_path(), 'en_US.json')  # on charge en.json si aucun fichier de langue n'est présent
-        # On charge le fichier de langue
-        with open(self.file_lang_path, "r", encoding='utf-8-sig') as lang_json:
-            desc = json.load(lang_json)
-            self.setconfig = desc['setconfig']
-            self.setconfig01 = desc['setconfig01']
-            self.datapath = desc['datapath']
-            self.title = desc['title']
-            self.title2 = desc['title2']
-            self.version_max = desc['version_max']
-            self.author = desc['author']
-            self.first_launch_title = desc['first_launch_title']
-            self.first_launch_lang_choice = desc['first_launch_lang_choice']
-            self.first_launch_config_done = desc['first_launch_config_done']
-            self.first_launch_pathmods = desc['first_launch_pathmods']
-            self.first_launch_lang_txt = desc['first_launch_lang_txt']
-            self.first_launch_game_ver_max = desc['first_launch_game_ver_max']
-            self.first_launch2 = desc['first_launch2']
-            self.first_launch3 = desc['first_launch3']
-            self.err_list = desc['err_list']
-            self.compver1 = desc['compver1']
-            self.compver2 = desc['compver2']
-            self.compver3 = desc['compver3']
-            self.compver3a = desc['compver3a']
-            self.compver4 = desc['compver4']
-            self.summary1 = desc['summary1']
-            self.summary2 = desc['summary2']
-            self.summary3 = desc['summary3']
-            self.summary4 = desc['summary4']
-            self.summary5 = desc['summary5']
-            self.summary6 = desc['summary6']
-            self.summary7 = desc['summary7']
-            self.error_modid = desc['error_modid']
-            self.error = desc['error']
-            self.last_update = desc['last_update']
-            self.yes = desc['yes']
-            self.no = desc['no']
-            self.existing_update = desc['existing_update']
-            self.exiting_script = desc['exiting_script']
-            self.language_comment = desc['language']
-            self.makePDFTitle = desc['makePDFTitle']
-            self.makepdf = desc['makePDF']
-            self.addingmodsinprogress = desc['addingmodsinprogress']
-            self.makingpdfended = desc['makingpdfended']
-            self.pdfTitle = desc['pdfTitle']
-            self.ErrorCreationPDF = desc['ErrorCreationPDF']
-            self.end_of_prg = desc['end_of_prg']
-            self.error_msg = desc['error_msg']
-
-        # On crée une liste pour les réponses O/N
-        self.list_yesno = [self.yes.lower(), self.no.lower(), self.yes[0].lower(), self.no[0].lower()]
-        # Dico pour les langues - Region, langue-abr, langue, index
-        self.dic_lang = {
-            "DE": ["de", "Deutsch", '1'],
-            "US": ["en", "English", '2'],
-            "ES": ["es", "Español", '3'],
-            "FR": ["fr", "Français", '4'],
-            "IT": ["it", "Italiano", '5'],
-            "BR": ["pt", "Português", '6'],
-            "RU": ["ru", "Русский", '7'],
-            "UA": ["uk", "Українська", '8']
-        }
 
 
 class MajScript:
@@ -166,17 +84,19 @@ class MajScript:
             online_ver_modsupdater = re.search(regexp_online_ver_modsupdater, str(soup_changelog))
             # On compare les versions
             result = VSUpdate.compversion_local(__version__, online_ver_modsupdater[1])
+
             if result == -1:
                 column, row = os.get_terminal_size()
-                maj_txt = f'[red]{LanguageChoice().existing_update}[/red]{LanguageChoice().url_mods.rstrip("/")}{soup_link_prg["href"]}'
+                maj_txt = f"[red]{lang_handler.get('existing_update')}[/red]{mods_url.rstrip('/')}{soup_link_prg['href']}"
                 lines_update = maj_txt.splitlines()
+
                 for line in lines_update:
                     print(f'{line.center(column)}')
         except requests.exceptions.ReadTimeout:
             write_log('ReadTimeout error: Server did not respond within the specified timeout.')
         except urllib.error.URLError as err_url:
             # Affiche de l'erreur si le lien n'est pas valide
-            print(f'[red]{LanguageChoice().error_msg}[/red]')
+            print(f"[red]{lang_handler.get('error_msg')}[/red]")
             msg_error = f'{err_url.reason} : {url_script}'
             write_log(msg_error)
 
@@ -190,26 +110,27 @@ class VSUpdate:
         # On crée le fichier config.ini si inexistant, puis (si lancement du script via l'executable et non en ligne de commande) on sort du programme si on veut ajouter des mods à exclure
         if not pathhandler.get_configfile_path().is_file():
             if args.nopause == 'false':
-                print(f'\n\t\t[bold cyan]{LanguageChoice().first_launch_title}[/bold cyan]\n')
+                print(f"\n\t\t[bold cyan]{lang_handler.get('first_launch_title')}[/bold cyan]\n")
                 i = 1
 
-                for _, item in LanguageChoice().dic_lang.items():
+                for _, item in lang_handler.supported_languages().items():
                     print(f'\t\t - {i}) {item[1]}, {item[0]}')
                     i += 1
-                lang_choice_result = Prompt.ask(f'\n\t\t[bold cyan]{LanguageChoice().first_launch_lang_choice}[/bold cyan]', choices=[str(i) for i in range(1, 9)], show_choices=False, default='2')
-                
-                for region, lang_ext in LanguageChoice().dic_lang.items():
+                lang_choice_result = Prompt.ask(f"\n\t\t[bold cyan]{lang_handler.get('first_launch_lang_choice')}[/bold cyan]", choices=[str(i) for i in range(1, 9)], show_choices=False, default='2')
+
+                for region, lang_ext in lang_handler.supported_languages().items():
                     if lang_choice_result == lang_ext[2]:
-                        self.file_lang_path = Path(pathhandler.get_lang_path(), f'{lang_ext[0]}_{region}.json')
+                        pathhandler.set_current_lang_file_path(f'{lang_ext[0]}_{region}.json')
                         self.lang_name = lang_ext[1]
             elif args.language:
-                self.file_lang_path = Path(pathhandler.get_lang_path(), f'{args.language}.json')
-                for region, lang_ext in LanguageChoice().dic_lang.items():
+                pathhandler.set_current_lang_file_path(f'{args.language}.json')
+
+                for region, lang_ext in lang_handler.supported_languages().items():
                     # On récupere le nom de la langue
                     if region == args.language.split('_')[1]:
                         self.lang_name = lang_ext[1]
             else:
-                self.file_lang_path = Path(pathhandler.get_lang_path(), 'en_US.json')
+                pathhandler.set_current_lang_file_path('en_US.json')
                 self.lang_name = 'English'
 
             # On crée le fichier config.ini
@@ -219,18 +140,21 @@ class VSUpdate:
             self.config_read.read(pathhandler.get_configfile_path(), encoding='utf-8-sig')
             self.force_update = self.config_read.get('ModsUpdater', 'force_update')  # On récupère la valeur de force_update
             self.disable_mod_dev = self.config_read.get('ModsUpdater', 'disable_mod_dev')  # On récupère l'option pour la maj ou non des version dev des mod.
-            print(f'\n\t[bold cyan]{LanguageChoice().first_launch_config_done}[/bold cyan] :')
-            print(f'\t\t- [bold cyan]{LanguageChoice().first_launch_lang_txt}[/bold cyan] : {self.lang_name}')
-            print(f'\t\t- [bold cyan]{LanguageChoice().first_launch_pathmods} : {pathhandler.get_mods_path()}[/bold cyan]')
-            print(f'\t\t- [bold cyan]{LanguageChoice().first_launch_game_ver_max}[/bold cyan]')
+            print(f"\n\t[bold cyan]{lang_handler.get('first_launch_config_done')}[/bold cyan] :")
+            print(f"\t\t- [bold cyan]{lang_handler.get('first_launch_lang_txt')}[/bold cyan] : {self.lang_name}")
+            print(f"\t\t- [bold cyan]{lang_handler.get('first_launch_pathmods')} : {pathhandler.get_mods_path()}[/bold cyan]")
+            print(f"\t\t- [bold cyan]{lang_handler.get('first_launch_game_ver_max')}[/bold cyan]")
             print(f'\t\t- [bold cyan]force_Update : {self.force_update}[/bold cyan]')
             print(f'\t\t- [bold cyan]disable_mod_dev : {self.disable_mod_dev}[/bold cyan]')
+
             # On demande de continuer ou on quitte
             if args.nopause == 'false':
-                print(f'\n\t[bold cyan]{LanguageChoice().first_launch2}[/bold cyan]')
-                maj_ok = Prompt.ask(f'\n\t{LanguageChoice().first_launch3}', choices=[LanguageChoice().list_yesno[0], LanguageChoice().list_yesno[1], LanguageChoice().list_yesno[2], LanguageChoice().list_yesno[3]])
-                if maj_ok == LanguageChoice().list_yesno[1] or maj_ok == LanguageChoice().list_yesno[3]:
-                    print(f'{lang.end_of_prg} ')
+                print(f"\n\t[bold cyan]{lang_handler.get('first_launch2')}[/bold cyan]")
+                maj_ok = Prompt.ask(f'\n\t{lang_handler().first_launch3}', choices=[lang_handler.yesno(0), lang_handler.yesno(1), lang_handler.yesno(2), lang_handler.yesno(3)])
+
+                if maj_ok == lang_handler.yesno(1) or maj_ok == lang_handler.yesno(3):
+                    print(f"{lang_handler.get('end_of_prg')} ")
+
                     if pathhandler.get_temp_path().is_dir():
                         shutil.rmtree(pathhandler.get_temp_path())
                     time.sleep(2)
@@ -301,19 +225,19 @@ class VSUpdate:
         config.add_section('ModPath')
         config.set('ModPath', 'path', str(pathhandler.get_mods_path()))
         config.add_section('Language')
-        config.set('Language', str(LanguageChoice().language_comment))
+        config.set('Language', lang_handler.get('language'))
         #  Si l'argument lang a été transmis
         if args.language:
             config.set('Language', 'language', args.language)  # from command line
         else:
             regex_lang = r"\/[a-z]{1,2}_[A-Z]{1,2}\.json$"
-            result_lang = re.search(regex_lang, str(self.file_lang_path))
+            result_lang = re.search(regex_lang, str(pathhandler.get_current_lang_file_path()))
             config.set('Language', 'language', result_lang[1])
         config.add_section('Game_Version_max')
-        config.set('Game_Version_max', LanguageChoice().setconfig01)
+        config.set('Game_Version_max', lang_handler.get('setconfig01'))
         config.set('Game_Version_max', 'version', '100.0.0')
         config.add_section('Mod_Exclusion')
-        config.set('Mod_Exclusion', LanguageChoice().setconfig)
+        config.set('Mod_Exclusion', lang_handler.get('setconfig'))
         if args.exclusion:
             for i in range(0, len(args.exclusion)):
                 config.set('Mod_Exclusion', 'mod' + str(i + 1), args.exclusion[i])
@@ -384,10 +308,10 @@ class VSUpdate:
                     else:
                         mod_description = ''
                 except Exception:
-                    print(f'[red]{LanguageChoice().error_msg}[/red]')
+                    print(f"[red]{lang_handler.get('error_msg')}[/red]")
                     msg_error = f'{file} :\n\n\t {traceback.format_exc()}'
                     write_log(msg_error)
-                print(f'[red]{LanguageChoice().error_msg}[/red]')
+                print(f"[red]{lang_handler.get('error_msg')}[/red]")
                 msg_error = f'{file} :\n\n\t {traceback.format_exc()}'
                 write_log(msg_error)
         elif type_file == '.cs':
@@ -420,7 +344,7 @@ class VSUpdate:
         for elem_cs in pathhandler.get_mods_path().glob('*.cs'):
             self.mod_filename.append(elem_cs.name)
         if len(self.mod_filename) == 0:
-            print(f"{LanguageChoice().err_list}")
+            print(f"{lang_handler.get('err_list')}")
             os.system("pause")
             sys.exit()
         return self.mod_filename
@@ -524,28 +448,28 @@ class VSUpdate:
             write_log('ReadTimeout error: Server did not respond within the specified timeout.')
         except urllib.error.URLError as err_url:
             # Affiche de l'erreur si le lien n'est pas valide
-            print(f'[red]{LanguageChoice().error_msg}[/red]')
+            print(f"[red]{lang_handler.get('error_msg')}[/red]")
             msg_error = f'{err_url.reason} : {url}'
             write_log(msg_error)
         return log
 
     def accueil(self):  # le _ en debut permet de lever le message "Parameter 'net_version' value is not used
         if self.gamever_limit == '100.0.0':
-            self.version = LanguageChoice().version_max
+            self.version = lang_handler.get('version_max')
         else:
             self.version = self.gamever_limit
         # *** Texte d'accueil ***
         column, row = os.get_terminal_size()
-        txt_title01 = f'\n\n[bold cyan]{LanguageChoice().title} - v.{__version__} {LanguageChoice().author}[/bold cyan]'
-        lines01 = txt_title01.splitlines()
-        for line in lines01:
+        txt_title01 = f"\n\n[bold cyan]{lang_handler.get('title')} - v.{__version__} {lang_handler.get('author')}[/bold cyan]"
+
+        for line in txt_title01.splitlines():
             print(line.center(column))
         # On vérifie si une version plus récente du script est en ligne
         maj_script = MajScript()
         maj_script.check_update_script()
-        txt_title02 = f'\n[cyan]{LanguageChoice().title2} : [bold]{self.version}[/bold][/cyan]\n'
-        lines02 = txt_title02.splitlines()
-        for line in lines02:
+        txt_title02 = f"\n[cyan]{lang_handler.get('title2')} : [bold]{self.version}[/bold][/cyan]\n"
+
+        for line in txt_title02.splitlines():
             print(f'{line.center(column)}')
         print('\n')
 
@@ -560,7 +484,7 @@ class VSUpdate:
             except configparser.NoSectionError:
                 pass
             except configparser.InterpolationSyntaxError as err_parsing:
-                print(f'[red]{LanguageChoice().error_msg}[/red]')
+                print(f"[red]{lang_handler.get('error_msg')}[/red]")
                 msg_error = f'Error in config.ini [Mod_Exclusion] - mod{str(j)} : {str(err_parsing)}'
                 write_log(msg_error)
                 sys.exit()
@@ -572,6 +496,7 @@ class VSUpdate:
         for modexclu in self.mods_exclu:
             if modexclu in self.liste_mod_maj_filename:
                 self.liste_mod_maj_filename.remove(modexclu)  # contient la liste des mods à mettre a jour avec les noms de fichier
+
         for elem in self.liste_mod_maj_filename:
             name = self.extract_modinfo(elem)[0]
             self.mod_name_list.append(name[0])
@@ -590,6 +515,7 @@ class VSUpdate:
             mod_url_api = f'{api_url}/{modid_value}'
             # On teste la validité du lien url
             req = urllib.request.Request(str(mod_url_api))
+
             try:
                 urllib.request.urlopen(req)  # On teste l'existence du lien
                 req_page = requests.get(str(mod_url_api), timeout=2)
@@ -599,33 +525,36 @@ class VSUpdate:
                 mod_file_onlinepath = (resp_dict['mod']['releases'][0]['mainfile'])
                 mod_prerelease_value = semver.Version.parse(self.mod_last_version_online)
                 # compare les versions des mods
-                print(f' [green]{modname_value[0].upper()}{modname_value[1:]}[/green]: {LanguageChoice().compver1} : {self.version_locale} - {LanguageChoice().compver2} : {self.mod_last_version_online}')
+                print(f" [green]{modname_value[0].upper()}{modname_value[1:]}[/green]: {lang_handler.get('compver1')} : {self.version_locale} - {lang_handler.get('compver2')} : {self.mod_last_version_online}")
+
                 if self.disable_mod_dev == 'false' or mod_prerelease_value.prerelease is None:
                     # On récupère les version du jeu nécessaire pour le mod (cad la version la plus basse necessaire)
                     mod_game_versions = resp_dict['mod']['releases'][0]['tags']
                     first_min_ver = None
+
                     for ver in mod_game_versions:
                         first_min_ver = ver.split('v', 1)[1]
                     result_compversion_local = self.compversion_local(self.version_locale, self.mod_last_version_online)  # (version locale, version online)
                     # On compare la version max souhaité à la version necessaire pour le mod
                     result_game_compare_version = self.compversion_first_min_version(self.gamever_limit, first_min_ver)  # (version locale, version online,)
+
                     if result_game_compare_version == -1 or result_game_compare_version == 0:  # On met à jour
                         if result_compversion_local == -1 or (result_compversion_local == 0 and self.force_update.lower() == 'true'):
-                            dl_link = f'{LanguageChoice().url_mods}{mod_file_onlinepath}'
+                            dl_link = f'{mods_url}{mod_file_onlinepath}'
                             resp = requests.get(str(dl_link), stream=True, timeout=2)
                             file_size = int(resp.headers.get("Content-length"))
                             file_size_mo = round(file_size / (1024 ** 2), 2)
-                            print(f'\t{LanguageChoice().compver3} : {file_size_mo} {LanguageChoice().compver3a}')
-                            print(f'\t[green] {modname_value} v.{self.mod_last_version_online}[/green] {LanguageChoice().compver4}')
+                            print(f"\t{lang_handler.get('compver3')} : {file_size_mo} {lang_handler.get('compver3a')}")
+                            print(f"\t[green] {modname_value} v.{self.mod_last_version_online}[/green] {lang_handler.get('compver4')}")
                             try:
                                 os.remove(filename_value)
                             except PermissionError:
-                                print(f'[red]{LanguageChoice().error_msg}[/red]')
+                                print(f"[red]{lang_handler.get('error_msg')}[/red]")
                                 msg_error = f'{filename_value} :\n\n\t {traceback.format_exc()}'
                                 write_log(msg_error)
                                 sys.exit()
                             wget.download(dl_link, str(pathhandler.get_mods_path()))  # debug
-                            self.changelog_path = f'https://mods.vintagestory.at/show/mod/{mod_asset_id}#tab-files'
+                            self.changelog_path = f'{api_url}/{mod_asset_id}#tab-files'
                             log_txt = self.get_changelog(self.changelog_path)  # On récupère le changelog
                             content_lst_mods_updated = [
                                 self.version_locale,
@@ -639,7 +568,7 @@ class VSUpdate:
                 write_log('ReadTimeout error: Server did not respond within the specified timeout.')
             except urllib.error.URLError as err_url:
                 # Affiche de l'erreur si le lien n'est pas valide
-                print(f'[red]{LanguageChoice().error_msg}[/red]')
+                print(f"[red]{lang_handler.get('error_msg')}[/red]")
                 msg_error = f'{err_url.reason} : {modname_value}'
                 write_log(msg_error)
             except Exception:
@@ -648,54 +577,43 @@ class VSUpdate:
 
     def resume(self):
         # Résumé de la maj
-        if self.nb_maj > 1:
-            print(f'  [yellow]{LanguageChoice().summary1}[/yellow] \n')
-            print(f'{LanguageChoice().summary2} :')
+        def translated(self, summary1, summary2):
+            print(f'  [yellow]{summary1}[/yellow] \n')
+            print(f'{summary2} :')
             log_filename = f'updates_{dt.datetime.today().strftime("%Y%m%d_%H%M%S")}.txt'
             log_path = Path(pathhandler.get_logs_path(), log_filename)
+
             with open(log_path, 'w', encoding='utf-8-sig') as logfile:
-                logfile.write(f'\n\t\t\tMods Vintage Story - {LanguageChoice().last_update} : {dt.datetime.today().strftime("%Y-%m-%d %H:%M:%S")}\n\n')
+                logfile.write(f"\n\t\t\tMods Vintage Story - {lang_handler.get('last_update')} : {dt.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
                 for modname, value in self.mods_updated.items():
                     local_version = value[0]
                     online_last_version = value[1]
                     print(f' * [green]{modname} :[/green]')
                     logfile.write(f'\n\n- {modname} : v{local_version} -> v{online_last_version} ({value[2]["url"]}) :\n')  # affiche en plus l'url du mod
+
                     for log_version, log_txt in value[2].items():
                         if log_version != 'url':
                             print(f'\t[bold][yellow]Changelog {log_version} :[/yellow][/bold]')
                             logfile.write(f'\tChangelog {log_version} :\n')
+
                             for line in log_txt:
                                 print(f'\t\t[yellow]- {line}[/yellow]')
                                 logfile.write(f'\t\t- {line}\n')
 
+        if self.nb_maj > 1:
+            translated(self, lang_handler.get('summary1'), lang_handler.get('summary2'))
         elif self.nb_maj == 1:
-            print(f'  [yellow]{LanguageChoice().summary3}[/yellow] \n')
-            print(f'{LanguageChoice().summary4} :')
-            log_filename = f'updates_{dt.datetime.today().strftime("%Y%m%d_%H%M%S")}.txt'
-            log_path = Path(pathhandler.get_logs_path(), log_filename)
-            with open(log_path, 'w', encoding='utf-8-sig') as logfile:
-                logfile.write(
-                    f'\n\t\t\tMods Vintage Story - {LanguageChoice().last_update} : {dt.datetime.today().strftime("%Y-%m-%d %H:%M:%S")}\n\n')
-                for modname, value in self.mods_updated.items():
-                    local_version = value[0]
-                    online_last_version = value[1]
-                    print(f' * [green]{modname} :[/green]')
-                    logfile.write(f'\n\n- {modname} : v{local_version} -> v{online_last_version} ({value[2]["url"]}) :\n')  # affiche en plus l'url du mod
-                    for log_version, log_txt in value[2].items():
-                        if log_version != 'url':
-                            print(f'\t[bold][yellow]Changelog {log_version} :[/yellow][/bold]')
-                            logfile.write(f'\tChangelog {log_version} :\n')
-                            for line in log_txt:
-                                print(f'\t\t[yellow]- {line}[/yellow]')
-                                logfile.write(f'\t\t- {line}\n')
+            translated(self, lang_handler.get('summary3'), lang_handler.get('summary4'))
         else:
-            print(f'  [yellow]{LanguageChoice().summary5}[/yellow]\n')
+            print(f"  [yellow]{lang_handler.get('summary5')}[/yellow]\n")
 
         if len(self.mods_exclu) == 1:
             modinfo_values = self.extract_modinfo(self.mods_exclu[0])
-            print(f'\n {LanguageChoice().summary6} :\n - [red]{modinfo_values[0]} [italic](v.{modinfo_values[2]})[italic][/red]')
+            print(f"\n {lang_handler.get('summary6')} :\n - [red]{modinfo_values[0]} [italic](v.{modinfo_values[2]})[italic][/red]")
         if len(self.mods_exclu) > 1:
-            print(f'\n {LanguageChoice().summary7} :')
+            print(f"\n {lang_handler.get('summary7')} :")
+
             for k in range(0, len(self.mods_exclu)):
                 # On appelle la fonction pour extraire modinfo.json
                 modinfo_values = self.extract_modinfo(self.mods_exclu[k])
@@ -762,18 +680,18 @@ class GetInfo:
             if mod_urlalias == 'None':
                 self.test_url_mod = f'{api_url}/{mod_asset_id}'
             else:
-                self.test_url_mod = f'{vs_url}/{mod_urlalias}'
+                self.test_url_mod = f'{mods_url}/{mod_urlalias}'
 
             return self.test_url_mod
         except requests.exceptions.ReadTimeout:
             write_log('ReadTimeout error: Server did not respond within the specified timeout.')
         except urllib.error.URLError as err_url:
             # Affiche de l'erreur si le lien n'est pas valide
-            print(f'[red]{LanguageChoice().error_msg}[/red]')
+            print(f"[red]{lang_handler.get('error_msg')}[/red]")
             msg_error = f'{err_url.reason} : {self.test_url_mod}'
             write_log(msg_error)
         except KeyError:
-            print(f'[red]{LanguageChoice().error_msg}[/red]')
+            print(f"[red]{lang_handler.get('error_msg')}[/red]")
             msg_error = traceback.format_exc()
             write_log(msg_error)
             sys.exit()
@@ -781,7 +699,6 @@ class GetInfo:
 
 class MakePdf:
     def __init__(self):
-        self.langchoice = LanguageChoice()
         # var temps
         self.current_dateTime = datetime.now()
         self.date_dl = self.current_dateTime.strftime("%Y-%m-%d %H:%M")
@@ -834,16 +751,16 @@ class MakePdf:
                     monpdf.set_font("FreeSans", '', size=7)
                     row.cell(ligne[1])
         except Exception:
-            print(f'[red]{LanguageChoice().error_msg}[/red]')
+            print(f"[red]{lang_handler.get('error_msg')}[/red]")
             msg_error = traceback.format_exc()
             write_log(msg_error)
             sys.exit()
 
         try:
             monpdf.output(nom_fichier_pdf)
-            print(f'\n\n\t\t[blue]{lang.makingpdfended}\n[/blue]')
+            print(f"\n\n\t\t[blue]{lang_handler.get('makingpdfended')}\n[/blue]")
         except PermissionError:
-            print(f'[red]{lang.ErrorCreationPDF}[/red]')
+            print(f"[red]{lang_handler.get('ErrorCreationPDF')}[/red]")
 
 
 if __name__ == "__main__":
@@ -866,13 +783,16 @@ if __name__ == "__main__":
     if args.configfile:
         pathhandler.set_current_config_file_path(Path(args.configfile))
 
+    lang_handler = languagehandler.LanguageHandler(args.language)
+
     # Test si il existe un fichier langue. (english par defaut)
-    try:
-        lang = LanguageChoice()
+    """try:
+        lang = lang_handler()
     except Exception:
         traceback_info = traceback.format_exc()
         write_log(traceback_info)
         sys.exit()
+    """
 
     if args.modspath and Path(args.modspath).is_dir():
         pathhandler.set_current_mods_path(Path(args.modspath))
@@ -897,16 +817,16 @@ if __name__ == "__main__":
         make_pdf = None
 
         if args.makepdf == 'false':
-            while make_pdf not in {str(LanguageChoice().yes).lower(), str(LanguageChoice().yes[0]).lower(), str(LanguageChoice().no).lower(), str(LanguageChoice().no[0]).lower()}:
-                make_pdf = Prompt.ask(f'{LanguageChoice().makepdf}', choices=[LanguageChoice().list_yesno[0], LanguageChoice().list_yesno[1], LanguageChoice().list_yesno[2], LanguageChoice().list_yesno[3]])
+            while make_pdf not in {lang_handler.yesno(0), lang_handler.yesno(1), lang_handler.yesno(2), lang_handler.yesno(3)}:
+                make_pdf = Prompt.ask(f"{lang_handler.get('makePDF')}", choices=[lang_handler.yesno(0), lang_handler.yesno(1), lang_handler.yesno(2), lang_handler.yesno(3)])
 
-        if make_pdf == str(LanguageChoice().yes).lower() or make_pdf == str(LanguageChoice().yes[0]).lower():
+        if make_pdf == str(lang_handler.get('yes')).lower() or make_pdf == str(lang_handler.get('yes')[0]).lower():
             # Construction du titre
             asterisk = '*'
-            nb_asterisk = len(LanguageChoice().makePDFTitle) + 4
+            nb_asterisk = len(lang_handler.get('makePDFTitle')) + 4
             string_asterisk = asterisk * nb_asterisk
             print(f'\t[green]{string_asterisk}[/green]')
-            print(f'\t[green]* {LanguageChoice().makePDFTitle} *[/green]')
+            print(f"\t[green]* {lang_handler.get('makePDFTitle')} *[/green]")
             print(f'\t[green]{string_asterisk}[/green]')
 
             # uniquement pour avoir le nb de mods (plus rapide car juste listing)
@@ -923,13 +843,13 @@ if __name__ == "__main__":
                     nb_mods_ok += 1
                     info_content = inst.extract_modinfo(modfilepath)
                     GetInfo(info_content[0], info_content[1], info_content[3], info_content[4]).get_infos()
-                    print(f'\t\t{LanguageChoice().addingmodsinprogress} {nb_mods_ok}/{nb_mods}', end="\r")
+                    print(f"\t\t{lang_handler.get('addingmodsinprogress')} {nb_mods_ok}/{nb_mods}", end="\r")
             pdf = MakePdf()
             pdf.makepdf()
 
             if args.makepdf == 'false':
-                input(f'{LanguageChoice().exiting_script}')
-        elif make_pdf == str(lang.no).lower() or make_pdf == str(LanguageChoice().no[0]).lower():
-            print(f'{LanguageChoice().end_of_prg} ')
+                input(f"{lang_handler.get('exiting_script')}")
+        elif make_pdf == lang_handler.get('no').lower() or make_pdf == lang_handler.get('no')[0].lower():
+            print(f"{lang_handler.get('end_of_prg')} ")
             time.sleep(2)
 

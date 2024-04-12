@@ -7,6 +7,7 @@ from shutil import rmtree
 current_os = platform.system()
 mods_path = None
 config_file_path = None
+lang_file_path = None
 
 
 def get_default_mods_path():
@@ -128,3 +129,23 @@ def get_current_config_file_path():
 
 def get_mods_table_csv_path():
     return Path(get_temp_path(), 'csvtemp.csv')
+
+
+def get_default_lang_file_path():
+    if not Path(get_lang_path(), 'en_US.json').is_file():
+        raise OSError('Default language file doesn\'t exist')
+    return Path(get_lang_path(), 'en_US.json')
+
+def get_current_lang_file_path():
+    global lang_file_path
+
+    if lang_file_path is None or not lang_file_path.is_file():
+        lang_file_path = Path(get_lang_path(), 'en_US.json')
+
+    return lang_file_path
+
+
+def set_current_lang_file_path(lang: str):
+    global lang_file_path
+
+    lang_file_path = Path(get_lang_path(), lang)
