@@ -61,46 +61,6 @@ def write_log(info_crash):
         crashlog_file.write(f'{dt.datetime.today().strftime("%Y-%m-%d %H:%M:%S")} : {info_crash}\n')
 
 
-class MajScript:
-    def check_update_script(self):
-        # Scrap pour recuperer la derniere version en ligne du script
-        if current_os == "Windows":
-            url_script = f'{mods_url}/modsupdater#tab-files'
-        elif current_os == 'Linux':
-            url_script = f'{mods_url}/modsupdaterforlinux#tab-files'
-        else:
-            url_script = ''
-        req_url_script = urllib.request.Request(url_script)
-
-        try:
-            urllib.request.urlopen(req_url_script)
-            req_page_url = requests.get(url_script, timeout=2)
-            page = req_page_url.content
-            soup = BeautifulSoup(page, features="html.parser")
-            soup_changelog = soup.find("div", {"class": "changelogtext"})
-            soup_link_prg = soup.find("a", {"class": "downloadbutton"})
-            # on recupere la version du chanlog
-            regexp_online_ver_modsupdater = '<strong>v(.*)</strong>'
-            online_ver_modsupdater = re.search(regexp_online_ver_modsupdater, str(soup_changelog))
-            # On compare les versions
-            result = VSUpdate.compversion_local(__version__, online_ver_modsupdater[1])
-
-            if result == -1:
-                column, row = os.get_terminal_size()
-                maj_txt = f"[red]{lang_handler.get('existing_update')}[/red]{mods_url.rstrip('/')}{soup_link_prg['href']}"
-                lines_update = maj_txt.splitlines()
-
-                for line in lines_update:
-                    print(f'{line.center(column)}')
-        except requests.exceptions.ReadTimeout:
-            write_log('ReadTimeout error: Server did not respond within the specified timeout.')
-        except urllib.error.URLError as err_url:
-            # Affiche de l'erreur si le lien n'est pas valide
-            print(f"[red]{lang_handler.get('error_msg')}[/red]")
-            msg_error = f'{err_url.reason} : {url_script}'
-            write_log(msg_error)
-
-
 class VSUpdate:
     def __init__(self):
         # Définition des chemins
@@ -465,8 +425,6 @@ class VSUpdate:
         for line in txt_title01.splitlines():
             print(line.center(column))
         # On vérifie si une version plus récente du script est en ligne
-        maj_script = MajScript()
-        maj_script.check_update_script()
         txt_title02 = f"\n[cyan]{lang_handler.get('title2')} : [bold]{self.version}[/bold][/cyan]\n"
 
         for line in txt_title02.splitlines():
@@ -611,6 +569,7 @@ class VSUpdate:
         if len(self.mods_exclu) == 1:
             modinfo_values = self.extract_modinfo(self.mods_exclu[0])
             print(f"\n {lang_handler.get('summary6')} :\n - [red]{modinfo_values[0]} [italic](v.{modinfo_values[2]})[italic][/red]")
+
         if len(self.mods_exclu) > 1:
             print(f"\n {lang_handler.get('summary7')} :")
 
@@ -654,11 +613,13 @@ class GetInfo:
             except KeyError:
                 pass
             zipfile.ZipFile.close(archive)
+
         self.mod_url = self.get_url(self.mod_id)
         self.moddesc_lst.append(self.mod_moddesc)
         self.moddesc_lst.append(self.mod_url)
         self.moddesc_lst.append(self.path_modicon)
         self.modsinfo_dic[self.mod_name] = self.moddesc_lst
+
         # On crée le csv
         with open(self.csvfile, "a", encoding="UTF-8", newline='') as fichier:
             objet_csv = csv.writer(fichier)
