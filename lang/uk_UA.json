@@ -5,7 +5,7 @@
 	"title" : "Програма оновлення модифікації Vintage Story",
 	"title2" : "Обмежити оновлення модів до версії гри",
 	"version_max" : "Остання версія",
-	"author" : "від Laerinok",
+	"by" : "від",
 	"first_launch_title": "Перший запуск програми",
 	"first_launch_lang_choice": "Виберіть мову",
 	"first_launch_config_done": "Файл config.ini створено з такими параметрами",

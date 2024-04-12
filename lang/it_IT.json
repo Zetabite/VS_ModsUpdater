@@ -5,7 +5,7 @@
 	"title" : "Programma di aggiornamento mod Vintage Story",
 	"title2" : "Limita gli aggiornamenti delle mod alla versione del gioco",
 	"version_max" : "Ultima versione",
-	"author" : "da Laerinok",
+	"by" : "da",
 	"first_launch_title": "Prima esecuzione del programma",
 	"first_launch_lang_choice": "Scegliere la lingua",
 	"first_launch_config_done": "Il file config.ini è stato creato con i seguenti parametri",

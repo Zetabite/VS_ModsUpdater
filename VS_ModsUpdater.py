@@ -460,7 +460,7 @@ class VSUpdate:
             self.version = self.gamever_limit
         # *** Texte d'accueil ***
         column, row = os.get_terminal_size()
-        txt_title01 = f"\n\n[bold cyan]{lang_handler.get('title')} - v.{__version__} {lang_handler.get('author')}[/bold cyan]"
+        txt_title01 = f"\n\n[bold cyan]{lang_handler.get('title')} - v.{__version__} {lang_handler.get('by')} {__author__}[/bold cyan]"
 
         for line in txt_title01.splitlines():
             print(line.center(column))

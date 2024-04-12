@@ -5,7 +5,7 @@
 	"title" : "Vintage Story Mod Updater",
 	"title2" : "Limit mod updates to the game version",
 	"version_max" : "Latest version",
-	"author" : "by Laerinok",
+	"by" : "by",
 	"first_launch_title" : "First program run",
 	"first_launch_lang_choice" : "Choose your language",
 	"first_launch_config_done" : "The config.ini file is created with the following parameters",

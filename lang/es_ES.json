@@ -5,7 +5,7 @@
     "title" : "Actualizador de Mods para Vintage Story",
     "title2" : "Limite las actualizaciones de mods a la versión del juego",
     "version_max" : "Última versión",
-    "author" : "por Laerinok",
+    "by" : "por",
 	"first_launch_title": "Primera ejecución del programa",
 	"first_launch_lang_choice": "Elige tu idioma",
 	"first_launch_config_done": "Se crea el archivo config.ini con los siguientes parámetros",

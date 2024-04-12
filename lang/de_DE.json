@@ -5,7 +5,7 @@
 	"title" : "Vintage Story Mod-Update-Programm",
 	"title2" : "Mod-Updates auf die Version des Spiels beschränken",
 	"version_max" : "Letzte Version",
-	"author" : "von Laerinok",
+	"by" : "von",
 	"first_launch_title" : "Erste Ausführung des Programms",
 	"first_launch_lang_choice" : "Wähle deine Sprache",
 	"first_launch_config_done" : "Die Datei config.ini wird mit den folgenden Einstellungen erstellt",
