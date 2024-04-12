@@ -12,7 +12,7 @@ Vintage Story mod management:
 - Possibility of generating a pdf file of the mod list
 """
 __author__ = ["Laerinok", "Zetabite"]
-__date__ = "2024-03-29"
+__date__ = "2024-04-12"
 __version__ = "2.0.0"
 
 import argparse
@@ -65,9 +65,9 @@ class MajScript:
     def check_update_script(self):
         # Scrap pour recuperer la derniere version en ligne du script
         if current_os == "Windows":
-            url_script = 'https://mods.vintagestory.at/modsupdater#tab-files'
+            url_script = f'{mods_url}/modsupdater#tab-files'
         elif current_os == 'Linux':
-            url_script = 'https://mods.vintagestory.at/modsupdaterforlinux#tab-files'
+            url_script = f'{mods_url}/modsupdaterforlinux#tab-files'
         else:
             url_script = ''
         req_url_script = urllib.request.Request(url_script)
