@@ -240,10 +240,10 @@ class VSUpdate:
         config.set('Mod_Exclusion', lang_handler.get('setconfig'))
         if args.exclusion:
             for i in range(0, len(args.exclusion)):
-                config.set('Mod_Exclusion', 'mod' + str(i + 1), args.exclusion[i])
+                config.set('Mod_Exclusion', f'mod{i + 1}', args.exclusion[i])
         else:
             for i in range(1, 11):
-                config.set('Mod_Exclusion', 'mod' + str(i), '')
+                config.set('Mod_Exclusion', f'mod{i}', '')
         with open(pathhandler.get_configfile_path(), 'w', encoding="utf-8") as cfgfile:
             config.write(cfgfile)
 
@@ -477,7 +477,7 @@ class VSUpdate:
         # On crée la liste des mods à exclure de la maj
         for j in range(1, len(self.config_read.options('Mod_Exclusion')) + 1):
             try:
-                modfile = self.config_read.get('Mod_Exclusion', 'mod' + str(j))
+                modfile = self.config_read.get('Mod_Exclusion', f'mod{j}')
                 if modfile != '':
                     self.mods_exclu.append(modfile)
                 self.mods_exclu.sort()
@@ -485,7 +485,7 @@ class VSUpdate:
                 pass
             except configparser.InterpolationSyntaxError as err_parsing:
                 print(f"[red]{lang_handler.get('error_msg')}[/red]")
-                msg_error = f'Error in config.ini [Mod_Exclusion] - mod{str(j)} : {str(err_parsing)}'
+                msg_error = f'Error in config.ini [Mod_Exclusion] - mod{j} : {err_parsing}'
                 write_log(msg_error)
                 sys.exit()
 
@@ -514,11 +514,11 @@ class VSUpdate:
             filename_value = self.extract_modinfo(mod_maj)[4]
             mod_url_api = f'{api_url}/{modid_value}'
             # On teste la validité du lien url
-            req = urllib.request.Request(str(mod_url_api))
+            req = urllib.request.Request(mod_url_api)
 
             try:
                 urllib.request.urlopen(req)  # On teste l'existence du lien
-                req_page = requests.get(str(mod_url_api), timeout=2)
+                req_page = requests.get(mod_url_api, timeout=2)
                 resp_dict = req_page.json()
                 mod_asset_id = (resp_dict['mod']['assetid'])
                 self.mod_last_version_online = (resp_dict['mod']['releases'][0]['modversion'])
@@ -541,7 +541,7 @@ class VSUpdate:
                     if result_game_compare_version == -1 or result_game_compare_version == 0:  # On met à jour
                         if result_compversion_local == -1 or (result_compversion_local == 0 and self.force_update.lower() == 'true'):
                             dl_link = f'{mods_url}{mod_file_onlinepath}'
-                            resp = requests.get(str(dl_link), stream=True, timeout=2)
+                            resp = requests.get(dl_link, stream=True, timeout=2)
                             file_size = int(resp.headers.get("Content-length"))
                             file_size_mo = round(file_size / (1024 ** 2), 2)
                             print(f"\t{lang_handler.get('compver3')} : {file_size_mo} {lang_handler.get('compver3a')}")
@@ -820,7 +820,7 @@ if __name__ == "__main__":
             while make_pdf not in {lang_handler.yesno(0), lang_handler.yesno(1), lang_handler.yesno(2), lang_handler.yesno(3)}:
                 make_pdf = Prompt.ask(f"{lang_handler.get('makePDF')}", choices=[lang_handler.yesno(0), lang_handler.yesno(1), lang_handler.yesno(2), lang_handler.yesno(3)])
 
-        if make_pdf == str(lang_handler.get('yes')).lower() or make_pdf == str(lang_handler.get('yes')[0]).lower():
+        if make_pdf == lang_handler.yesno(0) or make_pdf == lang_handler.yesno(2):
             # Construction du titre
             asterisk = '*'
             nb_asterisk = len(lang_handler.get('makePDFTitle')) + 4
