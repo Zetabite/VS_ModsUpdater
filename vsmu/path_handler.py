@@ -10,7 +10,7 @@ config_file_path = None
 lang_file_path = None
 
 
-def get_default_mods_path():
+def get_default_mods_path() -> Path or None:
     # On vérifie si le chemin contient des variables d'environnement
     # On vérifie si la variable %appdata% (ou HOME) est dans le chemin et on la remplace par la variable systeme.
     if current_os == 'Windows':
@@ -23,7 +23,7 @@ def get_default_mods_path():
 
 
 # On récupère l'argument modspath
-def get_mods_path():
+def get_mods_path() -> Path or None:
     global mods_path
 
     system_mods_path = get_default_mods_path()
@@ -36,7 +36,7 @@ def get_mods_path():
     return None
 
 
-def get_config_path():
+def get_config_path() -> Path or None:
     # On cherche les versions installées de Vintage Story
     if current_os == 'Windows':
         config_path = Path(os.getenv('appdata'), 'VS_ModsUpdater')
@@ -54,7 +54,7 @@ def get_config_path():
     return config_path
 
 
-def get_configfile_path():
+def get_configfile_path() -> Path or None:
     global config_file_path
 
     if config_file_path.is_file() and os.stat(config_file_path).st_size == 0:
@@ -62,7 +62,7 @@ def get_configfile_path():
     return config_file_path
 
 
-def get_logs_path():
+def get_logs_path() -> Path or None:
     log_path = Path(get_config_path(), 'logs')
 
     if not log_path.is_dir():
@@ -71,7 +71,7 @@ def get_logs_path():
     return Path(log_path)
 
 
-def get_temp_path():
+def get_temp_path() -> Path or None:
     temp_path = Path(get_config_path(), 'temp')
 
     if not temp_path.is_dir():
@@ -80,23 +80,26 @@ def get_temp_path():
     return Path(temp_path)
 
 
-def get_lang_path():
+def get_lang_path() -> Path or None:
     return Path(Path.cwd(), 'lang')
 
 
 # On efface le dossier temp
-def clear_temp_folder():
+def clear_temp_folder() -> Path or None:
     if get_temp_path().is_dir():
         rmtree(get_temp_path())
 
 
-def set_current_mods_path(path: Path):
+def set_current_mods_path(path: Path) -> None:
     global mods_path
+
+    if isinstance(path, str):
+        path = Path(path)
 
     mods_path = path
 
 
-def get_current_mods_path():
+def get_current_mods_path() -> Path or None:
     global mods_path
 
     if mods_path is None:
@@ -108,13 +111,16 @@ def get_current_mods_path():
     return mods_path
 
 
-def set_current_config_file_path(path: Path):
+def set_current_config_file_path(path: Path) -> None:
     global config_file_path
+
+    if isinstance(path, str):
+        path = Path(path)
 
     config_file_path = path
 
 
-def get_current_config_file_path():
+def get_current_config_file_path() -> Path or None:
     global config_file_path
 
     if config_file_path is None:
@@ -127,16 +133,16 @@ def get_current_config_file_path():
     return config_file_path
 
 
-def get_mods_table_csv_path():
+def get_mods_table_csv_path() -> Path or None:
     return Path(get_temp_path(), 'csvtemp.csv')
 
 
-def get_default_lang_file_path():
+def get_default_lang_file_path() -> Path or None:
     if not Path(get_lang_path(), 'en_US.json').is_file():
         raise OSError('Default language file doesn\'t exist')
     return Path(get_lang_path(), 'en_US.json')
 
-def get_current_lang_file_path():
+def get_current_lang_file_path() -> Path or None:
     global lang_file_path
 
     if lang_file_path is None or not lang_file_path.is_file():
@@ -145,7 +151,7 @@ def get_current_lang_file_path():
     return lang_file_path
 
 
-def set_current_lang_file_path(lang: str):
+def set_current_lang_file_path(lang: str) -> None:
     global lang_file_path
 
     lang_file_path = Path(get_lang_path(), lang)

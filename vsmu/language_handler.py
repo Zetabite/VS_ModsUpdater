@@ -5,15 +5,15 @@ import vsmu.path_handler as pathhandler
 
 class LanguageHandler:
     def __init__(self, args_language):
-        # Si on définit manuellement la langue via le fichier config
-        self.config_read = configparser.ConfigParser(allow_no_value=True, interpolation=None)
-        self.config_read.read(pathhandler.get_configfile_path(), encoding='utf-8-sig')
         # On vérifie si args.language existe
         if args_language:
             self.lang = f'{args_language}.json'
         # Sinon on récupère la langue via config.ini
         else:
             try:
+                # Si on définit manuellement la langue via le fichier config
+                self.config_read = configparser.ConfigParser(allow_no_value=True, interpolation=None)
+                self.config_read.read(pathhandler.get_configfile_path(), encoding='utf-8-sig')
                 self.config_lang = self.config_read.get('Language', 'language')
                 self.lang = f'{self.config_lang}.json'
             # On charge le fichier en_US.json
@@ -30,17 +30,17 @@ class LanguageHandler:
         return self.i18n[key]
     
     # On crée une liste pour les réponses O/N
-    def yesno(self, i: int):
-        return [
+    def yesno(self, i: int) -> list[str]:
+        return (
             self.get('yes').lower(),
             self.get('no').lower(),
             self.get('yes')[0].lower(),
             self.get('no')[0].lower()
-        ][i]
+        )[i]
 
     # Dico pour les langues - Region, langue-abr, langue, index
     @staticmethod
-    def supported_languages():
+    def supported_languages() -> dict:
         return {
             "DE": ["de", "Deutsch", '1'],
             "US": ["en", "English", '2'],
