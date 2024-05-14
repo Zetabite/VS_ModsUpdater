@@ -37,13 +37,13 @@ def get_mods_path() -> Path or None:
 
 
 def get_config_path() -> Path or None:
+    config_path = None
+
     # On cherche les versions installées de Vintage Story
     if current_os == 'Windows':
         config_path = Path(os.getenv('appdata'), 'VS_ModsUpdater')
     elif current_os == 'Linux':
         config_path = Path(Path.home(), '.config', 'VS_ModsUpdater')
-    else:
-        config_path = None
 
     if config_path is None:
         raise Exception('OS not supported')
@@ -62,8 +62,26 @@ def get_configfile_path() -> Path or None:
     return config_file_path
 
 
+def get_cache_path() -> Path or None:
+    cache_path = None
+
+    # On cherche les versions installées de Vintage Story
+    if current_os == 'Linux':
+        cache_path = Path(Path.home(), '.cache', 'VS_ModsUpdater')
+    else:
+        cache_path = get_config_path()
+
+    if cache_path is None:
+        raise Exception('OS not supported')
+
+    if not cache_path.is_dir():
+        os.mkdir(cache_path)
+
+    return cache_path
+
+
 def get_logs_path() -> Path or None:
-    log_path = Path(get_config_path(), 'logs')
+    log_path = Path(get_cache_path(), 'logs')
 
     if not log_path.is_dir():
         os.mkdir(log_path)
@@ -72,7 +90,7 @@ def get_logs_path() -> Path or None:
 
 
 def get_temp_path() -> Path or None:
-    temp_path = Path(get_config_path(), 'temp')
+    temp_path = Path(get_cache_path(), 'temp')
 
     if not temp_path.is_dir():
         os.mkdir(temp_path)
@@ -138,9 +156,11 @@ def get_mods_table_csv_path() -> Path or None:
 
 
 def get_default_lang_file_path() -> Path or None:
-    if not Path(get_lang_path(), 'en_US.json').is_file():
+    path: Path = Path(get_lang_path(), 'en_US.json')
+
+    if not path.is_file():
         raise OSError('Default language file doesn\'t exist')
-    return Path(get_lang_path(), 'en_US.json')
+    return path
 
 def get_current_lang_file_path() -> Path or None:
     global lang_file_path
